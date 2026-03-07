@@ -67,7 +67,7 @@ A componentised, context-efficient AI development framework for Claude Code. JDI
 ### 1. Install JDI
 
 ```bash
-bun install -g @zottiben/jedi
+bun install -g @benzotti/jedi
 ```
 
 Then initialise in your project:

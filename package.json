@@ -1,5 +1,5 @@
 {
-  "name": "@zottiben/jedi",
+  "name": "@benzotti/jedi",
   "version": "0.1.0",
   "description": "JDI - Context-efficient AI development framework for Claude Code",
   "type": "module",
