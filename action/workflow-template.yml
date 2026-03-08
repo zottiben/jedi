@@ -95,6 +95,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           trigger_phrase: '@jedi'
+          bot_name: 'jedi[bot]'
         env:
           CLICKUP_API_TOKEN: ${{ secrets.CLICKUP_API_TOKEN }}
 
