@@ -18,7 +18,8 @@ export const setupActionCommand = defineCommand({
       consola.warn(`Workflow already exists at ${workflowDest}`);
       consola.info("Skipping workflow copy. Delete it manually to regenerate.");
     } else {
-      const templatePath = join(import.meta.dir, "../../action/workflow-template.yml");
+      // import.meta.dir resolves to dist/ after bundling, so go up one level
+      const templatePath = join(import.meta.dir, "../action/workflow-template.yml");
       if (!existsSync(templatePath)) {
         consola.error("Workflow template not found. Ensure @benzotti/jedi is properly installed.");
         process.exit(1);
