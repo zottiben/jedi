@@ -9,6 +9,7 @@ import { loadPersistedState, savePersistedState } from "../utils/storage-lifecyc
 import { extractClickUpId, fetchClickUpTicket, formatTicketAsContext } from "../utils/clickup";
 import {
   postGitHubComment,
+  updateGitHubComment,
   reactToComment,
   formatJediComment,
   formatErrorComment,
@@ -184,6 +185,13 @@ export const actionCommand = defineCommand({
       await reactToComment(repo, commentId, "eyes").catch(() => {});
     }
 
+    // Post a thinking placeholder comment
+    let placeholderCommentId: number | null = null;
+    if (repo && issueNumber) {
+      const thinkingBody = formatJediComment("_Thinking..._");
+      placeholderCommentId = await postGitHubComment(repo, issueNumber, thinkingBody).catch(() => null);
+    }
+
     // Ping: quick framework status check — no Claude invocation needed
     if (intent.command === "ping") {
       const { existsSync } = await import("fs");
@@ -215,14 +223,18 @@ export const actionCommand = defineCommand({
         `| Version | \`${version}\` |`,
       ].join("\n");
 
-      const lines = formatJediComment(statusBody).split("\n");
+      const finalBody = formatJediComment(statusBody);
 
-      if (repo && issueNumber) {
-        await postGitHubComment(repo, issueNumber, lines.join("\n")).catch((err) => {
+      if (repo && placeholderCommentId) {
+        await updateGitHubComment(repo, placeholderCommentId, finalBody).catch((err) => {
+          consola.error("Failed to update ping comment:", err);
+        });
+      } else if (repo && issueNumber) {
+        await postGitHubComment(repo, issueNumber, finalBody).catch((err) => {
           consola.error("Failed to post ping comment:", err);
         });
       } else {
-        console.log(lines.join("\n"));
+        console.log(finalBody);
       }
 
       if (repo && commentId) {
@@ -440,7 +452,7 @@ export const actionCommand = defineCommand({
     if (saved.learningsSaved) consola.info("Learnings persisted to storage");
     if (saved.codebaseIndexSaved) consola.info("Codebase index persisted to storage");
 
-    // Post response comment with Jedi branding
+    // Update placeholder comment with final response (or post new if placeholder failed)
     if (repo && issueNumber) {
       const actionLabel = intent.isFeedback ? "feedback" : intent.command;
       let commentBody: string;
@@ -453,9 +465,15 @@ export const actionCommand = defineCommand({
         commentBody = formatJediComment(`Executed \`${actionLabel}\` successfully.`);
       }
 
-      await postGitHubComment(repo, issueNumber, commentBody).catch((err) => {
-        consola.error("Failed to post result comment:", err);
-      });
+      if (placeholderCommentId) {
+        await updateGitHubComment(repo, placeholderCommentId, commentBody).catch((err) => {
+          consola.error("Failed to update result comment:", err);
+        });
+      } else {
+        await postGitHubComment(repo, issueNumber, commentBody).catch((err) => {
+          consola.error("Failed to post result comment:", err);
+        });
+      }
     }
 
     // React with result

@@ -12,10 +12,28 @@ export async function postGitHubComment(
   repo: string,
   issueNumber: number,
   body: string,
+): Promise<number | null> {
+  const { stdout, exitCode } = await exec([
+    "gh", "api",
+    `repos/${repo}/issues/${issueNumber}/comments`,
+    "-f", `body=${body}`,
+    "--jq", ".id",
+  ]);
+  if (exitCode === 0 && stdout.trim()) {
+    return Number(stdout.trim());
+  }
+  return null;
+}
+
+export async function updateGitHubComment(
+  repo: string,
+  commentId: number,
+  body: string,
 ): Promise<void> {
   await exec([
     "gh", "api",
-    `repos/${repo}/issues/${issueNumber}/comments`,
+    "-X", "PATCH",
+    `repos/${repo}/issues/comments/${commentId}`,
     "-f", `body=${body}`,
   ]);
 }
