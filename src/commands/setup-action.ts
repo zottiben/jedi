@@ -39,7 +39,7 @@ export const setupActionCommand = defineCommand({
       [
         "Jedi GitHub Action Setup",
         "",
-        "Uses: anthropics/claude-code-action@v1",
+        "Uses: Jedi CLI via Claude Code",
         "Trigger: 'Hey Jedi' in issue/PR comments",
         "",
         "Required secrets (set via GitHub UI or CLI):",
