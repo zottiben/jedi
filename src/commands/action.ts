@@ -29,10 +29,10 @@ function parseComment(
   comment: string,
   isFollowUp: boolean,
 ): ParsedIntent | null {
-  // Strip @jedi prefix
-  const match = comment.match(/@jedi\s+(.+)/is);
+  // Strip "Hey Jedi" prefix (case-insensitive)
+  const match = comment.match(/hey\s+jedi\s+(.+)/is);
   if (!match) {
-    // No @jedi prefix — if this is a follow-up in an existing conversation,
+    // No "Hey Jedi" prefix — if this is a follow-up in an existing conversation,
     // treat the entire comment as feedback
     if (isFollowUp) {
       return {
@@ -96,7 +96,7 @@ function parseComment(
     };
   }
 
-  // If there's an existing conversation, treat ambiguous @jedi messages as feedback
+  // If there's an existing conversation, treat ambiguous "Hey Jedi" messages as feedback
   if (isFollowUp) {
     return {
       command: "plan",
@@ -114,12 +114,12 @@ function parseComment(
 export const actionCommand = defineCommand({
   meta: {
     name: "action",
-    description: "GitHub Action entry point — parse @jedi comment and run workflow",
+    description: "GitHub Action entry point — parse 'Hey Jedi' comment and run workflow",
   },
   args: {
     comment: {
       type: "positional",
-      description: "The raw comment body containing @jedi mention",
+      description: "The raw comment body containing 'Hey Jedi' mention",
       required: true,
     },
     "comment-id": {
@@ -167,7 +167,7 @@ export const actionCommand = defineCommand({
     // Parse intent — pass isFollowUp so ambiguous messages become feedback
     const intent = parseComment(args.comment, isFollowUp);
     if (!intent) {
-      consola.error("Could not parse @jedi intent from comment");
+      consola.error("Could not parse 'Hey Jedi' intent from comment");
       process.exit(1);
     }
 

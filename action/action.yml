@@ -17,7 +17,7 @@ inputs:
   trigger_phrase:
     description: 'The trigger phrase to look for in comments'
     required: false
-    default: '@jedi'
+    default: 'Hey Jedi'
   jedi_version:
     description: 'Version of @benzotti/jedi to install for init'
     required: false

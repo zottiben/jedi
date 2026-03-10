@@ -75,13 +75,13 @@ export async function fetchCommentThread(
 
 /**
  * Build a conversation history string from the comment thread.
- * Includes previous @jedi commands, Jedi responses, and user feedback.
+ * Includes previous "Hey Jedi" commands, Jedi responses, and user feedback.
  */
 export function buildConversationContext(
   thread: ThreadComment[],
   currentCommentId: number,
 ): { history: string; previousJediRuns: number; isFollowUp: boolean } {
-  // Filter to only @jedi-related comments (commands, responses, feedback between them)
+  // Filter to only Jedi-related comments (commands, responses, feedback between them)
   const jediSegments: ThreadComment[] = [];
   let inJediConversation = false;
 
@@ -89,11 +89,11 @@ export function buildConversationContext(
     // Don't include the current triggering comment
     if (comment.id === currentCommentId) break;
 
-    if (comment.body.includes("@jedi")) {
+    if (/hey\s+jedi/i.test(comment.body)) {
       inJediConversation = true;
       jediSegments.push(comment);
     } else if (inJediConversation) {
-      // Include all comments between @jedi triggers and Jedi responses
+      // Include all comments between "Hey Jedi" triggers and Jedi responses
       jediSegments.push(comment);
       if (comment.isJedi) {
         // Jedi responded — keep tracking for follow-up feedback

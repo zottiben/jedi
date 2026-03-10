@@ -9,12 +9,12 @@
 #   - Set CLICKUP_API_TOKEN secret for ClickUp ticket integration
 #   - Run `npx @benzotti/jedi init` locally to customise framework files
 #
-# Usage: Comment on any issue or PR with @jedi followed by a command:
-#   @jedi plan <description>        — Create an implementation plan
-#   @jedi quick <description>       — Make a small, focused change
-#   @jedi review                    — Review the current PR
-#   @jedi feedback                  — Address PR review comments
-#   @jedi do <clickup-ticket-url>   — Full flow: plan + implement from ticket
+# Usage: Comment on any issue or PR with "Hey Jedi" followed by a command:
+#   Hey Jedi plan <description>        — Create an implementation plan
+#   Hey Jedi quick <description>       — Make a small, focused change
+#   Hey Jedi review                    — Review the current PR
+#   Hey Jedi feedback                  — Address PR review comments
+#   Hey Jedi do <clickup-ticket-url>   — Full flow: plan + implement from ticket
 #
 # Conversation: Jedi supports back-and-forth iteration. After Jedi responds,
 # reply with feedback to refine, or say "approved" to finalise.
@@ -39,11 +39,11 @@ permissions:
   id-token: write
 
 jobs:
-  # ── Triggered by @jedi comments on issues/PRs ──
+  # ── Triggered by "Hey Jedi" comments on issues/PRs ──
   jedi:
     if: >-
       (github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment')
-      && contains(github.event.comment.body, '@jedi')
+      && contains(github.event.comment.body, 'Hey Jedi')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -94,7 +94,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          trigger_phrase: '@jedi'
+          trigger_phrase: 'Hey Jedi'
           bot_name: 'jedi[bot]'
         env:
           CLICKUP_API_TOKEN: ${{ secrets.CLICKUP_API_TOKEN }}
