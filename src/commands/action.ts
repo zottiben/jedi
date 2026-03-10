@@ -186,9 +186,10 @@ export const actionCommand = defineCommand({
     }
 
     // Post a thinking placeholder comment
+    const commandLabel = intent.isFeedback ? "feedback" : intent.command;
     let placeholderCommentId: number | null = null;
     if (repo && issueNumber) {
-      const thinkingBody = formatJediComment("_Thinking..._");
+      const thinkingBody = `<h3>🧠 Jedi <sup>thinking</sup></h3>\n\n---\n\n_Working on it..._`;
       placeholderCommentId = await postGitHubComment(repo, issueNumber, thinkingBody).catch(() => null);
     }
 
@@ -223,7 +224,7 @@ export const actionCommand = defineCommand({
         `| Version | \`${version}\` |`,
       ].join("\n");
 
-      const finalBody = formatJediComment(statusBody);
+      const finalBody = formatJediComment("ping", statusBody);
 
       if (repo && placeholderCommentId) {
         await updateGitHubComment(repo, placeholderCommentId, finalBody).catch((err) => {
@@ -350,22 +351,51 @@ export const actionCommand = defineCommand({
             `## Scope Rules`,
             `IMPORTANT: Only plan what was explicitly requested. Do NOT add extras like testing, linting, formatting, CI, or tooling unless the user asked for them.`,
             `If something is ambiguous, ask — do not guess.`,
+            `NEVER use time estimates (minutes, hours, etc). Use t-shirt sizes: S, M, L. This is mandatory.`,
             ``,
             `## Learnings`,
             `Before planning, read .jdi/persistence/learnings.md and .jdi/framework/learnings/ if they exist. Apply any team preferences found.`,
             ``,
-            `## Presentation`,
-            `Follow the planning workflow in your spec. When presenting the plan:`,
-            `1. Start with a brief summary of the approach`,
-            `2. Include the FULL plan in a collapsible details block using this format:`,
-            `   <details>`,
-            `   <summary>View full plan</summary>`,
-            `   `,
-            `   [full plan content here as markdown]`,
-            `   `,
-            `   </details>`,
-            `3. After the plan, suggest 3-5 optional additions the user might want (e.g. "Would you also like testing? linting? state management?"). These are NOT part of the plan.`,
-            `4. Ask for feedback. The user will respond via another GitHub comment.`,
+            `## Response Format`,
+            `Follow the planning workflow in your spec to write plan files. Then respond with EXACTLY this structure (no deviations, no meta-commentary like "You are now active as..." or "Plan created"):`,
+            ``,
+            `1-2 sentence summary of the approach.`,
+            ``,
+            `<details>`,
+            `<summary>View full plan</summary>`,
+            ``,
+            `## {Plan Name}`,
+            ``,
+            `**Overall size:** {S|M|L}`,
+            ``,
+            `### Tasks`,
+            ``,
+            `| Task | Name | Size | Type | Wave |`,
+            `|------|------|------|------|------|`,
+            `| T1 | {name} | {S|M|L} | auto | 1 |`,
+            ``,
+            `### T1 — {Task Name}`,
+            `**Objective:** {what this achieves}`,
+            ``,
+            `**Steps:**`,
+            `1. {step}`,
+            ``,
+            `**Done when:** {completion criterion}`,
+            ``,
+            `---`,
+            `(repeat for each task)`,
+            ``,
+            `### Verification`,
+            `- [ ] {check 1}`,
+            `- [ ] {check 2}`,
+            ``,
+            `</details>`,
+            ``,
+            `**Optional additions** — not included in this plan:`,
+            `1. {suggestion}`,
+            `2. {suggestion}`,
+            ``,
+            `Any changes before implementation?`,
           ].join("\n");
           break;
 
@@ -486,11 +516,11 @@ export const actionCommand = defineCommand({
       let commentBody: string;
 
       if (success && fullResponse) {
-        commentBody = formatJediComment(fullResponse);
+        commentBody = formatJediComment(actionLabel, fullResponse);
       } else if (!success) {
         commentBody = formatErrorComment(actionLabel, "Check workflow logs for details.");
       } else {
-        commentBody = formatJediComment(`Executed \`${actionLabel}\` successfully.`);
+        commentBody = formatJediComment(actionLabel, `Executed \`${actionLabel}\` successfully.`);
       }
 
       if (placeholderCommentId) {

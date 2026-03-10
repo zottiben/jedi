@@ -78,7 +78,7 @@ export async function fetchCommentThread(
         body: parsed.body,
         createdAt: parsed.createdAt,
         // Detect Jedi's own comments by the header
-        isJedi: parsed.body.includes("### ⚔️ Jedi"),
+        isJedi: parsed.body.includes("Jedi <sup>"),
       });
     } catch {
       // skip malformed lines
@@ -142,11 +142,24 @@ export function buildConversationContext(
   return { history: lines.join("\n"), previousJediRuns, isFollowUp };
 }
 
+const COMMAND_EMOJI: Record<string, string> = {
+  plan: "🔮",
+  implement: "▶",
+  quick: "⚡",
+  review: "💠",
+  feedback: "🌀",
+  ping: "🔹",
+};
+
 export function formatJediComment(
+  command: string,
   response: string,
 ): string {
+  const emoji = COMMAND_EMOJI[command] ?? "◈";
   return [
-    `### ⚔️ Jedi`,
+    `<h3>${emoji} Jedi <sup>${command}</sup></h3>`,
+    ``,
+    `---`,
     ``,
     response,
   ].join("\n");
@@ -156,9 +169,12 @@ export function formatErrorComment(
   command: string,
   summary: string,
 ): string {
+  const emoji = COMMAND_EMOJI[command] ?? "◈";
   return [
-    `### ⚔️ Jedi`,
+    `<h3>${emoji} Jedi <sup>${command} · failed</sup></h3>`,
     ``,
-    `**${command} failed.** ${summary}`,
+    `---`,
+    ``,
+    summary,
   ].join("\n");
 }
