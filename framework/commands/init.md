@@ -13,7 +13,7 @@ Initialise the JDI slash commands in the current project.
 
 ```bash
 mkdir -p .claude/commands/jdi
-mkdir -p .jdi/plans .jdi/research .jdi/config
+mkdir -p .jdi/plans .jdi/research .jdi/codebase .jdi/reviews .jdi/config .jdi/persistence .jdi/feedback
 ```
 
 ### Step 2: Copy Command Stubs

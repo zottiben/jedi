@@ -1,6 +1,7 @@
 import { defineCommand } from "citty";
 import { consola } from "consola";
 import { resolve, join } from "path";
+import { existsSync } from "fs";
 import { detectProjectType } from "../utils/detect-project";
 import { copyFrameworkFiles } from "../utils/copy-framework";
 
@@ -47,6 +48,7 @@ export const initCommand = defineCommand({
       ".jdi/reviews",
       ".jdi/config",
       ".jdi/persistence",
+      ".jdi/feedback",
     ];
 
     for (const dir of dirs) {
@@ -56,6 +58,28 @@ export const initCommand = defineCommand({
     // Copy framework files with adapter resolution
     // In CI mode, never overwrite existing persistence data
     await copyFrameworkFiles(cwd, projectType, args.force, args.ci);
+
+    // Initialise config files from framework templates
+    const configFiles = ["state.yaml", "variables.yaml", "jdi-config.yaml"];
+    for (const file of configFiles) {
+      const src = join(cwd, ".jdi", "framework", "config", file);
+      const dest = join(cwd, ".jdi", "config", file);
+      if (existsSync(src) && (args.force || !existsSync(dest))) {
+        const content = await Bun.file(src).text();
+        await Bun.write(dest, content);
+      }
+    }
+
+    // Scaffold project templates (only if missing)
+    const scaffoldFiles = ["PROJECT.yaml", "REQUIREMENTS.yaml", "ROADMAP.yaml"];
+    for (const file of scaffoldFiles) {
+      const src = join(cwd, ".jdi", "framework", "templates", file);
+      const dest = join(cwd, ".jdi", file);
+      if (existsSync(src) && !existsSync(dest)) {
+        const content = await Bun.file(src).text();
+        await Bun.write(dest, content);
+      }
+    }
 
     // Configure storage in jdi-config.yaml if flags provided
     if (args.storage || args["storage-path"]) {
