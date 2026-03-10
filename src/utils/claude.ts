@@ -67,7 +67,7 @@ function formatStreamEvent(event: any): string | null {
 export async function spawnClaude(
   prompt: string,
   opts?: SpawnClaudeOptions,
-): Promise<{ exitCode: number }> {
+): Promise<{ exitCode: number; response: string }> {
   const claudePath = await findClaude();
   const args = [
     claudePath,
@@ -106,10 +106,11 @@ export async function spawnClaude(
     proc.stdin!.end();
   }
 
-  // Stream and parse JSON events in real time
+  // Stream and parse JSON events in real time, capturing final text response
   const reader = proc.stdout!.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let lastTextResponse = "";
 
   try {
     while (true) {
@@ -127,6 +128,19 @@ export async function spawnClaude(
           const event = JSON.parse(trimmed);
           const output = formatStreamEvent(event);
           if (output) process.stdout.write(output);
+
+          // Capture the last assistant text as the final response
+          if (event.type === "assistant" && event.message?.content) {
+            for (const block of event.message.content) {
+              if (block.type === "text" && block.text) {
+                lastTextResponse = block.text;
+              }
+            }
+          }
+          // Also capture result text
+          if (event.type === "result" && event.result) {
+            lastTextResponse = event.result;
+          }
         } catch {
           // Not valid JSON, skip
         }
@@ -139,6 +153,17 @@ export async function spawnClaude(
         const event = JSON.parse(buffer.trim());
         const output = formatStreamEvent(event);
         if (output) process.stdout.write(output);
+
+        if (event.type === "assistant" && event.message?.content) {
+          for (const block of event.message.content) {
+            if (block.type === "text" && block.text) {
+              lastTextResponse = block.text;
+            }
+          }
+        }
+        if (event.type === "result" && event.result) {
+          lastTextResponse = event.result;
+        }
       } catch {
         // skip
       }
@@ -149,5 +174,5 @@ export async function spawnClaude(
 
   const exitCode = await proc.exited;
   process.stdout.write("\n");
-  return { exitCode };
+  return { exitCode, response: lastTextResponse };
 }

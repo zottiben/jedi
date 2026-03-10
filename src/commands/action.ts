@@ -10,7 +10,8 @@ import { extractClickUpId, fetchClickUpTicket, formatTicketAsContext } from "../
 import {
   postGitHubComment,
   reactToComment,
-  formatResultComment,
+  formatJediComment,
+  formatErrorComment,
   fetchCommentThread,
   buildConversationContext,
 } from "../utils/github";
@@ -202,8 +203,8 @@ export const actionCommand = defineCommand({
         }
       } catch {}
 
-      const lines = [
-        `### Jedi Framework Status`,
+      const statusBody = [
+        `**Framework Status**`,
         ``,
         `| Component | Status |`,
         `|-----------|--------|`,
@@ -212,10 +213,9 @@ export const actionCommand = defineCommand({
         `| State config | ${stateExists ? "found" : "missing"} |`,
         `| Learnings | ${learningsExists ? "found" : "missing"} |`,
         `| Version | \`${version}\` |`,
-        ``,
-        `---`,
-        `_Powered by [@benzotti/jedi](https://github.com/zottiben/jedi)_`,
-      ];
+      ].join("\n");
+
+      const lines = formatJediComment(statusBody).split("\n");
 
       if (repo && issueNumber) {
         await postGitHubComment(repo, issueNumber, lines.join("\n")).catch((err) => {
@@ -391,11 +391,13 @@ export const actionCommand = defineCommand({
 
     // Execute
     let success = true;
+    let fullResponse = "";
     try {
-      const { exitCode } = await spawnClaude(prompt, {
+      const { exitCode, response } = await spawnClaude(prompt, {
         cwd,
         permissionMode: "bypassPermissions",
       });
+      fullResponse = response;
       if (exitCode !== 0) {
         success = false;
         consola.error(`Claude exited with code ${exitCode}`);
@@ -423,6 +425,10 @@ export const actionCommand = defineCommand({
         if (implResult.exitCode !== 0) {
           success = false;
         }
+        // Append implementation response
+        if (implResult.response) {
+          fullResponse += "\n\n---\n\n" + implResult.response;
+        }
       }
     } catch (err) {
       success = false;
@@ -434,14 +440,19 @@ export const actionCommand = defineCommand({
     if (saved.learningsSaved) consola.info("Learnings persisted to storage");
     if (saved.codebaseIndexSaved) consola.info("Codebase index persisted to storage");
 
-    // Post result comment
+    // Post response comment with Jedi branding
     if (repo && issueNumber) {
       const actionLabel = intent.isFeedback ? "feedback" : intent.command;
-      const summary = success
-        ? `Executed \`${actionLabel}\` successfully.${saved.learningsSaved ? " Learnings updated." : ""}`
-        : `Execution of \`${actionLabel}\` failed. Check workflow logs for details.`;
+      let commentBody: string;
 
-      const commentBody = formatResultComment(actionLabel, success, summary);
+      if (success && fullResponse) {
+        commentBody = formatJediComment(fullResponse);
+      } else if (!success) {
+        commentBody = formatErrorComment(actionLabel, "Check workflow logs for details.");
+      } else {
+        commentBody = formatJediComment(`Executed \`${actionLabel}\` successfully.`);
+      }
+
       await postGitHubComment(repo, issueNumber, commentBody).catch((err) => {
         consola.error("Failed to post result comment:", err);
       });

@@ -59,11 +59,8 @@ export async function fetchCommentThread(
         author: parsed.author,
         body: parsed.body,
         createdAt: parsed.createdAt,
-        // Detect Jedi's own comments by the signature footer
-        isJedi: parsed.body.includes("Powered by [@benzotti/jedi]") ||
-                parsed.body.includes("Jedi plan") ||
-                parsed.body.includes("Jedi quick") ||
-                parsed.body.includes("Jedi implement"),
+        // Detect Jedi's own comments by the header
+        isJedi: parsed.body.includes("### ⚔️ Jedi"),
       });
     } catch {
       // skip malformed lines
@@ -127,25 +124,23 @@ export function buildConversationContext(
   return { history: lines.join("\n"), previousJediRuns, isFollowUp };
 }
 
-export function formatResultComment(
+export function formatJediComment(
+  response: string,
+): string {
+  return [
+    `### ⚔️ Jedi`,
+    ``,
+    response,
+  ].join("\n");
+}
+
+export function formatErrorComment(
   command: string,
-  success: boolean,
   summary: string,
 ): string {
-  const status = success ? "Completed" : "Failed";
-  const icon = success ? "white_check_mark" : "x";
-
   return [
-    `### :${icon}: Jedi ${command} — ${status}`,
+    `### ⚔️ Jedi`,
     ``,
-    `<details>`,
-    `<summary>Details</summary>`,
-    ``,
-    summary,
-    ``,
-    `</details>`,
-    ``,
-    `---`,
-    `_Powered by [@benzotti/jedi](https://github.com/zottiben/jedi)_`,
+    `**${command} failed.** ${summary}`,
   ].join("\n");
 }

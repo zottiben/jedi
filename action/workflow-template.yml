@@ -88,17 +88,28 @@ jobs:
             grep -qxF "$pattern" .git/info/exclude 2>/dev/null || echo "$pattern" >> .git/info/exclude
           done
 
-      # Run Jedi via the official Claude Code Action (tag mode — posts comments automatically)
-      # NOTE: No 'prompt' input — Jedi instructions live in .claude/CLAUDE.md (written by bootstrap)
-      # Using prompt would switch to agent mode which doesn't post comments back to the PR/issue
+      # Install Claude Code CLI (required by Jedi for AI invocations)
+      - name: Install Claude Code
+        run: bun install -g @anthropic-ai/claude-code
+
+      # Run Jedi CLI directly — full pipeline with routing, agents, and comment posting
       - name: Run Jedi
-        uses: anthropics/claude-code-action@v1
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          trigger_phrase: 'Hey Jedi'
-          bot_name: 'jedi[bot]'
+        run: |
+          COMMENT_BODY="${{ github.event.comment.body }}"
+          COMMENT_ID="${{ github.event.comment.id }}"
+          PR_NUMBER="${{ github.event.issue.pull_request && github.event.issue.number || '' }}"
+          ISSUE_NUMBER="${{ github.event.issue.number }}"
+
+          ARGS="--repo ${{ github.repository }}"
+          [ -n "$COMMENT_ID" ] && ARGS="$ARGS --comment-id $COMMENT_ID"
+          [ -n "$PR_NUMBER" ] && ARGS="$ARGS --pr-number $PR_NUMBER"
+          [ -n "$ISSUE_NUMBER" ] && ARGS="$ARGS --issue-number $ISSUE_NUMBER"
+
+          bunx @benzotti/jedi@latest action "$COMMENT_BODY" $ARGS
         env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLICKUP_API_TOKEN: ${{ secrets.CLICKUP_API_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
 
       # Save Jedi state — framework, config, persistence all cached together
       - name: Save Jedi state
