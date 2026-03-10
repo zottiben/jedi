@@ -27,6 +27,6 @@ Create an implementation plan using a single planner agent (includes research).
 9. **Present summary** (name, objective, task table, files) then ask: _"Provide feedback to refine, or say **approved** to finalise."_
 10. **Review loop**: approval → update state to `"approved"`, confirm. Feedback → revise plan in-place, increment revision, re-present summary. Repeat until approved. This is natural conversation — no separate command needed.
 
-Agent base (read FIRST for cache): ./components/meta/AgentBase.md | Agent spec: ./agents/jdi-planner.md
+Agent base (read FIRST for cache): .jdi/framework/components/meta/AgentBase.md | Agent spec: .jdi/framework/agents/jdi-planner.md
 
 Feature to plan: $ARGUMENTS

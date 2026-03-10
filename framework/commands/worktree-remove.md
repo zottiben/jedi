@@ -27,6 +27,6 @@ Remove a git worktree and clean up all associated resources.
 7. **Update state**: set `worktree.active: false`, clear `worktree.path`, `worktree.branch` in `.jdi/config/state.yaml`
 8. **Report**: what was removed
 
-Reference: ./hooks/jdi-worktree-cleanup.md
+Reference: .jdi/framework/hooks/jdi-worktree-cleanup.md
 
 Worktree to remove: $ARGUMENTS

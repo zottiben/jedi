@@ -14,8 +14,8 @@ export async function copyFrameworkFiles(
   const frameworkDest = join(cwd, ".jdi", "framework");
   const glob = new Bun.Glob("**/*");
   for await (const file of glob.scan({ cwd: frameworkDir })) {
-    // Skip adapters (handled separately) and command stubs (copied to .claude/commands/jdi/)
-    if (file.startsWith("adapters/") || file.startsWith("commands/")) continue;
+    // Skip adapters (handled separately)
+    if (file.startsWith("adapters/")) continue;
 
     const src = join(frameworkDir, file);
     const dest = join(frameworkDest, file);
@@ -140,6 +140,8 @@ Recognise natural language JDI intents and invoke the matching skill via the Ski
 
 Extract flags from context: "in a worktree" → \`--worktree\`, "lightweight" → \`--worktree-lightweight\`, "single agent" → \`--single\`, "use teams" → \`--team\`. If the intent is unclear, ask. Never guess.
 
+Planning and implementation are separate gates — NEVER auto-proceed to implementation after plan approval.
+
 ## Iterative Refinement
 
 After \`/jdi:create-plan\` or \`/jdi:implement-plan\` completes, the conversation continues naturally — no new command invocation needed. When the user provides feedback (e.g. "change task 2", "move this to a helper", "add error handling"), apply the changes directly, update state, and present the updated summary. When the user approves (e.g. "approved", "looks good", "lgtm"), finalise the review state. The conversation IS the feedback loop.
@@ -160,6 +162,8 @@ Recognise natural language JDI intents and invoke the matching skill via the Ski
 - Quick/small fix → \`/jdi:quick\`
 
 Extract flags from context: "in a worktree" → \`--worktree\`, "lightweight" → \`--worktree-lightweight\`, "single agent" → \`--single\`, "use teams" → \`--team\`. If the intent is unclear, ask. Never guess.
+
+Planning and implementation are separate gates — NEVER auto-proceed to implementation after plan approval.
 
 ## Iterative Refinement
 

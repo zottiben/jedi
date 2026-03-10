@@ -124,6 +124,15 @@ describe("copyFrameworkFiles", () => {
     expect(content).toContain("bun install");
   });
 
+  test("copies command stubs to .jdi/framework/commands/", async () => {
+    const dir = makeTempDir();
+    await copyFrameworkFiles(dir, "generic", false);
+
+    const frameworkCommandsDir = join(dir, ".jdi", "framework", "commands");
+    expect(existsSync(frameworkCommandsDir)).toBe(true);
+    expect(existsSync(join(frameworkCommandsDir, "create-plan.md"))).toBe(true);
+  });
+
   test("skips existing files when force=false", async () => {
     const dir = makeTempDir();
     await copyFrameworkFiles(dir, "generic", false);

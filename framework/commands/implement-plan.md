@@ -26,8 +26,8 @@ Execute a PLAN.md with complexity-based routing.
 11. **Present summary** (tasks completed, files changed, verification results, deviations) then ask: _"Provide feedback to adjust, or say **approved** to finalise."_
 12. **Review loop**: approval → update state to `"complete"`, suggest commit/PR. Feedback → apply code changes, run tests, increment revision, re-present. Repeat until approved. Natural conversation — no separate command needed.
 
-Agent base (read FIRST for cache): ./components/meta/AgentBase.md | Agent specs: ./agents/jdi-backend.md, ./agents/jdi-frontend.md
-Orchestration: ./components/meta/AgentTeamsOrchestration.md | Routing: ./components/meta/ComplexityRouter.md
+Agent base (read FIRST for cache): .jdi/framework/components/meta/AgentBase.md | Agent specs: .jdi/framework/agents/jdi-backend.md, .jdi/framework/agents/jdi-frontend.md
+Orchestration: .jdi/framework/components/meta/AgentTeamsOrchestration.md | Routing: .jdi/framework/components/meta/ComplexityRouter.md
 
 When spawning agents, detect project type and include a `## Project Context` block (type, tech stack, quality gates, working directory) in the spawn prompt. This saves agents 2-3 discovery tool calls.
 
