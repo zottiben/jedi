@@ -1,11 +1,11 @@
 name: Publish to npm
 
 on:
-  release:
-    types: [published]
+  push:
+    branches: [main]
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
@@ -14,23 +14,51 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 2
+
+      # Only publish if package.json version changed
+      - name: Check version change
+        id: version
+        run: |
+          CURRENT=$(jq -r .version package.json)
+          PREVIOUS=$(git show HEAD~1:package.json | jq -r .version)
+          if [ "$CURRENT" = "$PREVIOUS" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Version unchanged ($CURRENT) — skipping publish"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "version=$CURRENT" >> "$GITHUB_OUTPUT"
+            echo "Version changed: $PREVIOUS → $CURRENT"
+          fi
 
       - uses: oven-sh/setup-bun@v2
+        if: steps.version.outputs.changed == 'true'
         with:
           bun-version: latest
 
       - run: bun install --frozen-lockfile
+        if: steps.version.outputs.changed == 'true'
 
       - run: bun run build
+        if: steps.version.outputs.changed == 'true'
 
       - run: bun run test
+        if: steps.version.outputs.changed == 'true'
 
       - uses: actions/setup-node@v4
+        if: steps.version.outputs.changed == 'true'
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
 
       - run: npm publish --access public --provenance
+        if: steps.version.outputs.changed == 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Create a git tag for the release
+      - name: Tag release
+        if: steps.version.outputs.changed == 'true'
+        run: |
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
