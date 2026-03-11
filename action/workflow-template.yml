@@ -47,9 +47,20 @@ jobs:
       && contains(github.event.comment.body, 'Hey Jedi')
     runs-on: ubuntu-latest
     steps:
+      # Resolve the PR head branch for issue_comment events
+      # (github.head_ref is only set on pull_request events, not issue_comment)
+      - name: Resolve PR branch
+        id: pr
+        if: github.event.issue.pull_request
+        run: |
+          PR_DATA=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }} --jq '{head_ref: .head.ref, head_sha: .head.sha}')
+          echo "branch=$(echo "$PR_DATA" | jq -r .head_ref)" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref || github.ref }}
+          ref: ${{ steps.pr.outputs.branch || github.head_ref || github.ref }}
 
       # Restore persisted Jedi state (learnings + codebase-index)
       # 1. Exact match for this branch
@@ -63,7 +74,7 @@ jobs:
             .jdi/framework/
             .jdi/config/
             .claude/
-          key: jedi-state-${{ github.repository }}-${{ github.head_ref || github.ref_name }}
+          key: jedi-state-${{ github.repository }}-${{ steps.pr.outputs.branch || github.head_ref || github.ref_name }}
           restore-keys: |
             jedi-state-${{ github.repository }}-main
 
@@ -135,7 +146,7 @@ jobs:
             .jdi/framework/
             .jdi/config/
             .claude/
-          key: jedi-state-${{ github.repository }}-${{ github.head_ref || github.ref_name }}-${{ github.run_id }}
+          key: jedi-state-${{ github.repository }}-${{ steps.pr.outputs.branch || github.head_ref || github.ref_name }}-${{ github.run_id }}
 
   # ── Promote learnings to main baseline when PRs merge ──
   promote-learnings:
