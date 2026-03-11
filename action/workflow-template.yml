@@ -30,6 +30,8 @@ on:
     types: [created]
   pull_request_review_comment:
     types: [created]
+  pull_request_review:
+    types: [submitted]
   push:
     branches: [main, master]
 
@@ -40,23 +42,30 @@ permissions:
   id-token: write
 
 jobs:
-  # ── Triggered by "Hey Jedi" comments on issues/PRs ──
+  # ── Triggered by "Hey Jedi" comments on issues/PRs or PR reviews ──
   jedi:
     if: >-
-      (github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment')
-      && contains(github.event.comment.body, 'Hey Jedi')
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, 'Hey Jedi'))
+      || (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, 'Hey Jedi'))
+      || (github.event_name == 'pull_request_review' && contains(github.event.review.body, 'Hey Jedi'))
     runs-on: ubuntu-latest
     steps:
-      # Resolve the PR head branch for issue_comment events
-      # (github.head_ref is only set on pull_request events, not issue_comment)
+      # Resolve the PR head branch
+      # - issue_comment: github.head_ref is empty, resolve via API
+      # - pull_request_review / pull_request_review_comment: github.event.pull_request.head.ref is available
       - name: Resolve PR branch
         id: pr
-        if: github.event.issue.pull_request
         run: |
-          PR_DATA=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }} --jq '{head_ref: .head.ref, head_sha: .head.sha}')
-          echo "branch=$(echo "$PR_DATA" | jq -r .head_ref)" >> "$GITHUB_OUTPUT"
+          if [ -n "$PR_HEAD_REF" ]; then
+            echo "branch=$PR_HEAD_REF" >> "$GITHUB_OUTPUT"
+          elif [ -n "$PR_NUMBER" ]; then
+            BRANCH=$(gh api repos/${{ github.repository }}/pulls/$PR_NUMBER --jq '.head.ref')
+            echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref || '' }}
+          PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number || '' }}
 
       - uses: actions/checkout@v4
         with:
@@ -118,8 +127,7 @@ jobs:
         run: bun install -g @anthropic-ai/claude-code
 
       # Run Jedi CLI directly — full pipeline with routing, agents, and comment posting
-      # IMPORTANT: Comment body is passed via env var to avoid shell injection
-      # (backticks, $(), etc. in comments would be executed as commands if interpolated inline)
+      # IMPORTANT: All user input is passed via env vars to avoid shell injection
       - name: Run Jedi
         run: |
           ARGS="--repo $REPO"
@@ -129,10 +137,11 @@ jobs:
 
           bunx @benzotti/jedi@latest action "$COMMENT_BODY" $ARGS
         env:
-          COMMENT_BODY: ${{ github.event.comment.body }}
-          COMMENT_ID: ${{ github.event.comment.id }}
-          PR_NUMBER: ${{ github.event.issue.pull_request && github.event.issue.number || '' }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          # Resolve comment body from whichever event type triggered this
+          COMMENT_BODY: ${{ github.event.comment.body || github.event.review.body || '' }}
+          COMMENT_ID: ${{ github.event.comment.id || github.event.review.id || '' }}
+          PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number || '' }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number || '' }}
           REPO: ${{ github.repository }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLICKUP_API_TOKEN: ${{ secrets.CLICKUP_API_TOKEN }}

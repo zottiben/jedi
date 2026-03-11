@@ -199,6 +199,52 @@ export const actionCommand = defineCommand({
       placeholderCommentId = await postGitHubComment(repo, issueNumber, thinkingBody).catch(() => null);
     }
 
+    // Approval: lightweight confirmation — no Claude invocation needed
+    if (intent.isFeedback && intent.isApproval) {
+      // Update state.yaml directly
+      const { existsSync } = await import("fs");
+      const { join } = await import("path");
+      const statePath = join(cwd, ".jdi/config/state.yaml");
+
+      if (existsSync(statePath)) {
+        const stateContent = await Bun.file(statePath).text();
+        const now = new Date().toISOString();
+        // Update or add review status fields
+        let updated = stateContent;
+        if (/review\.status:/.test(updated)) {
+          updated = updated.replace(/review\.status:\s*.+/, `review.status: approved`);
+        } else {
+          updated += `\nreview.status: approved\n`;
+        }
+        if (/review\.approved_at:/.test(updated)) {
+          updated = updated.replace(/review\.approved_at:\s*.+/, `review.approved_at: ${now}`);
+        } else {
+          updated += `review.approved_at: ${now}\n`;
+        }
+        await Bun.write(statePath, updated);
+      }
+
+      const approvalBody = `Plan approved and locked in.\n\nSay **\`Hey Jedi implement\`** when you're ready to go.`;
+      const finalBody = formatJediComment("plan", approvalBody);
+
+      if (repo && placeholderCommentId) {
+        await updateGitHubComment(repo, placeholderCommentId, finalBody).catch((err) => {
+          consola.error("Failed to update approval comment:", err);
+        });
+      } else if (repo && issueNumber) {
+        await postGitHubComment(repo, issueNumber, finalBody).catch((err) => {
+          consola.error("Failed to post approval comment:", err);
+        });
+      } else {
+        console.log(finalBody);
+      }
+
+      if (repo && commentId) {
+        await reactToComment(repo, commentId, "+1").catch(() => {});
+      }
+      return;
+    }
+
     // Ping: quick framework status check — no Claude invocation needed
     if (intent.command === "ping") {
       const { existsSync } = await import("fs");
@@ -297,26 +343,7 @@ export const actionCommand = defineCommand({
     // Build prompt based on whether this is feedback or a new command
     let prompt: string;
 
-    if (intent.isFeedback && intent.isApproval) {
-      // ── Approval — finalise the plan, but do NOT implement ──
-      prompt = [
-        `Read ${baseProtocol} for the base agent protocol.`,
-        ``,
-        ...contextLines,
-        ``,
-        conversationHistory,
-        ``,
-        `## Plan Approved`,
-        `> ${intent.description}`,
-        ``,
-        `The user has approved the plan. Finalise it:`,
-        `1. Read \`.jdi/config/state.yaml\` and update \`review.status\` to "approved" and \`review.approved_at\` to now`,
-        `2. Do NOT implement any code — approval and implementation are separate gates`,
-        ``,
-        `Respond with a short confirmation that the plan is approved and ready, then ask:`,
-        `"Say **implement** when you're ready to go."`,
-      ].join("\n");
-    } else if (intent.isFeedback && isPostImplementation) {
+    if (intent.isFeedback && isPostImplementation) {
       // ── Post-implementation iteration — allow code changes, commit, push ──
       prompt = [
         `Read ${baseProtocol} for the base agent protocol.`,
@@ -583,7 +610,7 @@ export const actionCommand = defineCommand({
 
     // Update placeholder comment with final response (or post new if placeholder failed)
     if (repo && issueNumber) {
-      const actionLabel = intent.isApproval ? "implement" : intent.isFeedback ? "feedback" : intent.command;
+      const actionLabel = intent.isFeedback ? "feedback" : intent.command;
       let commentBody: string;
 
       if (success && fullResponse) {
