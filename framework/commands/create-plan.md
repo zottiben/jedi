@@ -20,8 +20,8 @@ Create an implementation plan using a single planner agent (includes research).
 2. Read codebase context (`.jdi/codebase/SUMMARY.md` if exists)
 3. Read scaffolding (.jdi/PROJECT.yaml, REQUIREMENTS.yaml, ROADMAP.yaml) — create from templates if missing
 4. Quick Mode Detection — suggest /jdi:quick for trivial tasks
-5. Spawn `jdi-planner` agent (subagent_type="general-purpose") — creates PLAN.md with tasks, deps, waves
-6. Collect and execute deferred ops
+5. Spawn `jdi-planner` agent (subagent_type="general-purpose") — creates split plan files (index .plan.md + per-task .T{n}.md files). The planner MUST write these files directly via Write tool (sandbox override for plan files).
+6. Collect and execute deferred ops — if the agent returned `files_to_create`, create them now using Write tool. Verify split plan files exist: index `.plan.md` + individual `.T{n}.md` task files.
 7. **Update state via CLI** — do NOT manually edit state.yaml. Run:
    ```bash
    npx jdi state plan-ready --plan-path ".jdi/plans/{plan-file}" --plan-name "{plan name}"

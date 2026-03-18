@@ -54,3 +54,7 @@ Do NOT manually edit `.jdi/config/state.yaml` for status transitions. Use the CL
 - `npx jdi state advance-task {task-id}` — after each task completes
 
 You may only append to `decisions`, `deviations`, or `blockers` arrays in state.yaml directly via `<JDI:StateUpdate />`.
+
+## Self-Testing (Jedi development only)
+
+If the current project is the Jedi framework itself (`@benzotti/jedi`), run `bun test` after modifying prompt builders, action commands, or framework files. This catches regressions in split format references, learnings inclusion, and framework invariants.

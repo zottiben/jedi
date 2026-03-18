@@ -257,9 +257,9 @@ export function buildRefinementPrompt(ctx: PromptContext, feedback: string, conv
     `If the feedback is a question, answer it conversationally. If it implies a plan change, update the plan.`,
     ``,
     `## Response Format (MANDATORY)`,
-    `1-2 sentence summary of what changed. Then the full updated plan in a collapsible block:`,
+    `1-2 sentence summary of what changed. Then the updated plan summary in a collapsible block:`,
     `\`<details><summary>View full plan</summary> ... </details>\``,
-    `Use the same plan structure as the initial plan (tasks table, per-task details, verification).`,
+    `Show the tasks manifest table and brief summaries. Maintain the SPLIT plan format: update the index file and individual task files (.T{n}.md) separately.`,
     `End with: "Any changes before implementation?"`,
   ].join("\n");
 }

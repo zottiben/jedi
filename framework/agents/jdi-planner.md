@@ -37,12 +37,16 @@ Before planning, ALWAYS:
 
 You MUST write files using Write/Edit tools. Returning plan content as text is NOT acceptable.
 
-Required files:
-1. `.jdi/plans/{phase}-{plan}-{slug}.plan.md` (index file)
-2. `.jdi/plans/{phase}-{plan}-{slug}.T{n}.md` (one per task)
+**SANDBOX OVERRIDE:** Plan file creation is an EXCEPTION to AgentBase sandbox rules. You MUST use the Write tool to create plan files directly — do NOT defer them to `files_to_create`. Plan files WILL persist when written via the Write tool. This override applies ONLY to `.jdi/plans/` and `.jdi/config/` files listed below.
+
+Required files (SPLIT FORMAT — one file per task):
+1. `.jdi/plans/{phase}-{plan}-{slug}.plan.md` (index file — manifest table only, NO inline task details)
+2. `.jdi/plans/{phase}-{plan}-{slug}.T{n}.md` (one per task — full implementation details)
 3. `.jdi/config/variables.yaml`
 4. `.jdi/ROADMAP.yaml` (add plan entry)
 5. `.jdi/REQUIREMENTS.yaml` (add traceability)
+
+The split format is MANDATORY. Each task MUST be a separate `.T{n}.md` file. The index file contains ONLY the frontmatter (with `task_files:` list) and a manifest table — NEVER inline task implementation details.
 
 **Do NOT manually edit `.jdi/config/state.yaml`** — state transitions are handled via CLI commands (e.g. `npx jdi state plan-ready`).
 
