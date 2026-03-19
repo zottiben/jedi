@@ -14,7 +14,7 @@ import { worktreeCommand } from "./commands/worktree";
 import { worktreeRemoveCommand } from "./commands/worktree-remove";
 import { planReviewCommand } from "./commands/plan-review";
 import { planApproveCommand } from "./commands/plan-approve";
-import { actionCommand } from "./commands/action";
+import { actionCommand } from "./commands/action/index";
 import { setupActionCommand } from "./commands/setup-action";
 import { stateCommand } from "./commands/state";
 import pkg from "../package.json";

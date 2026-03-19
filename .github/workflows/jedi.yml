@@ -60,14 +60,13 @@ jobs:
       - name: Resolve PR branch
         id: pr
         run: |
-          if [ -n "$PR_HEAD_REF" ]; then
-            echo "branch=$PR_HEAD_REF" >> "$GITHUB_OUTPUT"
-          elif [ -n "$PR_NUMBER" ]; then
-            BRANCH=$(gh api repos/${{ github.repository }}/pulls/$PR_NUMBER --jq '.head.ref')
-            echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
-          fi
+          bunx @benzotti/jedi@latest action resolve-branch \
+            --repo "$REPO" \
+            ${PR_HEAD_REF:+--pr-head-ref "$PR_HEAD_REF"} \
+            ${PR_NUMBER:+--pr-number "$PR_NUMBER"}
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref || '' }}
           PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number || '' }}
 
@@ -100,81 +99,14 @@ jobs:
       # Bootstrap Jedi framework if not present (first run or cache miss)
       - name: Bootstrap Jedi
         run: |
-          if [ ! -d ".jdi/framework" ]; then
-            bunx @benzotti/jedi@latest init --ci
-          fi
-          mkdir -p .jdi/persistence
-
-          # If cache was restored from fallback (not exact branch match),
-          # clear plans and state — they're branch-local, only learnings carry forward
-          if [ "${{ steps.cache.outputs.cache-hit }}" != "true" ]; then
-            echo "Cache miss or fallback — clearing plan state"
-            rm -rf .jdi/plans/*
-            mkdir -p .jdi/config
-            printf 'active_plan: null\ncurrent_wave: null\nmode: null\n' > .jdi/config/state.yaml
-          fi
-
-          # Exclude Jedi working directories from git so they don't get committed
-          # or conflict with branch checkouts — they live in the cache only
-          mkdir -p .git/info
-          for pattern in '.jdi/' '.claude/'; do
-            grep -qxF "$pattern" .git/info/exclude 2>/dev/null || echo "$pattern" >> .git/info/exclude
-          done
+          bunx @benzotti/jedi@latest action bootstrap --cache-hit "${{ steps.cache.outputs.cache-hit }}"
 
       # Fetch shared learnings from an external repo if configured.
       # This merges cross-project learnings into the local framework before agents run.
       - name: Fetch shared learnings
         if: vars.JEDI_LEARNINGS_REPO != ''
         run: |
-          LEARNINGS_DIR=".jdi/framework/learnings"
-          REMOTE_SUBDIR="jedi/learnings"
-          mkdir -p "$LEARNINGS_DIR"
-
-          # Clone only the learnings directory (sparse checkout)
-          TMPDIR=$(mktemp -d)
-          git clone --depth 1 --filter=blob:none --sparse \
-            "https://x-access-token:${LEARNINGS_TOKEN}@github.com/${LEARNINGS_REPO}.git" \
-            "$TMPDIR" 2>/dev/null || {
-              echo "Could not clone learnings repo — continuing without shared learnings"
-              exit 0
-            }
-
-          cd "$TMPDIR"
-          git sparse-checkout set "$REMOTE_SUBDIR" 2>/dev/null || true
-          cd - > /dev/null
-
-          # Merge learnings from external repo into local framework
-          if [ -d "$TMPDIR/$REMOTE_SUBDIR" ]; then
-            for f in "$TMPDIR/$REMOTE_SUBDIR"/*.md; do
-              [ -f "$f" ] || continue
-              BASENAME=$(basename "$f")
-              LOCAL_FILE="$LEARNINGS_DIR/$BASENAME"
-
-              if [ ! -f "$LOCAL_FILE" ]; then
-                cp "$f" "$LOCAL_FILE"
-                echo "Loaded shared learning: $BASENAME"
-              else
-                # Append lines from remote that aren't already in the local file
-                MERGED=0
-                while IFS= read -r line; do
-                  [ -z "$line" ] && continue
-                  if ! grep -qFx "$line" "$LOCAL_FILE" 2>/dev/null; then
-                    echo "$line" >> "$LOCAL_FILE"
-                    MERGED=$((MERGED + 1))
-                  fi
-                done < "$f"
-                if [ "$MERGED" -gt 0 ]; then
-                  echo "Merged $MERGED new lines into $BASENAME"
-                else
-                  echo "No new learnings to merge for $BASENAME"
-                fi
-              fi
-            done
-          else
-            echo "No shared learnings found — continuing"
-          fi
-
-          rm -rf "$TMPDIR"
+          bunx @benzotti/jedi@latest action fetch-learnings --learnings-repo "$LEARNINGS_REPO"
         env:
           LEARNINGS_REPO: ${{ vars.JEDI_LEARNINGS_REPO }}
           LEARNINGS_TOKEN: ${{ secrets.JEDI_LEARNINGS_TOKEN || github.token }}
@@ -198,7 +130,7 @@ jobs:
       #   Set JEDI_ALLOWED_USERS to a comma-separated list for explicit allow-listing.
       - name: Run Jedi
         run: |
-          bunx @benzotti/jedi@latest action "$COMMENT_BODY" \
+          bunx @benzotti/jedi@latest action run "$COMMENT_BODY" \
             --repo "$REPO" \
             ${COMMENT_ID:+--comment-id "$COMMENT_ID"} \
             ${PR_NUMBER:+--pr-number "$PR_NUMBER"} \
@@ -241,32 +173,10 @@ jobs:
       - name: Check if Jedi was involved
         id: check
         run: |
-          # Find the PR associated with this merge commit
-          PR_NUMBER=$(gh api "repos/$REPO/commits/${{ github.sha }}/pulls" --jq '.[0].number // empty' 2>/dev/null || true)
-          if [ -z "$PR_NUMBER" ]; then
-            echo "No associated PR found — skipping"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Check if Jedi commented on this PR (comments from github-actions bot mentioning Jedi)
-          JEDI_ACTIVITY=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
-            --jq '[.[] | select(.user.login == "github-actions[bot]" and (.body | test("jedi|Jedi|🤖")))] | length' 2>/dev/null || echo "0")
-
-          # Also check if jedi[bot] made any commits on the PR
-          JEDI_COMMITS=$(gh api "repos/$REPO/pulls/$PR_NUMBER/commits" --paginate \
-            --jq '[.[] | select(.commit.author.name == "jedi[bot]")] | length' 2>/dev/null || echo "0")
-
-          if [ "$JEDI_ACTIVITY" -gt 0 ] || [ "$JEDI_COMMITS" -gt 0 ]; then
-            BRANCH=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.head.ref')
-            echo "Jedi was active on PR #$PR_NUMBER (comments: $JEDI_ACTIVITY, commits: $JEDI_COMMITS) — promoting learnings"
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
-            echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
-          else
-            echo "No Jedi activity on PR #$PR_NUMBER — skipping"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          fi
+          bunx @benzotti/jedi@latest action promote-learnings \
+            --check-only \
+            --repo "$REPO" \
+            --sha "${{ github.sha }}"
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -315,98 +225,14 @@ jobs:
           && steps.restore.outputs.cache-hit != ''
           && vars.JEDI_COMMIT_LEARNINGS == 'true'
         run: |
-          LEARNINGS_SRC=".jdi/framework/learnings"
-          REMOTE_SUBDIR="jedi/learnings"
-
-          # Only proceed if there are learnings files with content
-          if [ ! -d "$LEARNINGS_SRC" ]; then
-            echo "No learnings directory found — skipping commit"
-            exit 0
-          fi
-
-          # Check if any learnings files have meaningful content (not just headers)
-          HAS_CONTENT=false
-          for f in "$LEARNINGS_SRC"/*.md; do
-            [ -f "$f" ] || continue
-            if grep -qvE '^\s*(#|<!--|$)' "$f" 2>/dev/null; then
-              HAS_CONTENT=true
-              break
-            fi
-          done
-
-          if [ "$HAS_CONTENT" != "true" ]; then
-            echo "No learnings content to commit — skipping"
-            exit 0
-          fi
-
           git config user.name "jedi[bot]"
           git config user.email "jedi[bot]@users.noreply.github.com"
-
-          if [ -n "$LEARNINGS_REPO" ]; then
-            # ── External repo: clone, merge learnings, push ──
-            TMPDIR=$(mktemp -d)
-
-            git clone --depth 1 \
-              "https://x-access-token:${LEARNINGS_TOKEN}@github.com/${LEARNINGS_REPO}.git" \
-              "$TMPDIR" 2>/dev/null || {
-                echo "::warning::Could not clone learnings repo ${LEARNINGS_REPO} — skipping commit"
-                exit 0
-              }
-
-            mkdir -p "$TMPDIR/$REMOTE_SUBDIR"
-
-            # Merge learnings: append new lines from local that don't exist in remote
-            for f in "$LEARNINGS_SRC"/*.md; do
-              [ -f "$f" ] || continue
-              BASENAME=$(basename "$f")
-              REMOTE_FILE="$TMPDIR/$REMOTE_SUBDIR/$BASENAME"
-
-              if [ -f "$REMOTE_FILE" ]; then
-                # Append lines from local that aren't already in the remote file
-                while IFS= read -r line; do
-                  [ -z "$line" ] && continue
-                  if ! grep -qFx "$line" "$REMOTE_FILE" 2>/dev/null; then
-                    echo "$line" >> "$REMOTE_FILE"
-                  fi
-                done < "$f"
-                echo "Merged learning: $BASENAME"
-              else
-                cp "$f" "$REMOTE_FILE"
-                echo "Added new learning: $BASENAME"
-              fi
-            done
-
-            cd "$TMPDIR"
-            git config user.name "jedi[bot]"
-            git config user.email "jedi[bot]@users.noreply.github.com"
-            git add "$REMOTE_SUBDIR"/*.md
-
-            if git diff --cached --quiet; then
-              echo "Learnings unchanged in external repo — nothing to commit"
-            else
-              git commit -m "chore(jedi): update learnings from ${{ github.repository }}
-
-          Source: PR #${{ steps.check.outputs.pr_number }} on ${{ github.repository }}
-          Learnings accumulated from PR reviews and feedback."
-              git push
-              echo "Learnings committed to ${LEARNINGS_REPO}/$REMOTE_SUBDIR"
-            fi
-
-            cd - > /dev/null
-            rm -rf "$TMPDIR"
-          else
-            # ── Same repo: commit directly to main ──
-            git add "$LEARNINGS_SRC"/*.md
-            if git diff --cached --quiet; then
-              echo "Learnings unchanged — nothing to commit"
-            else
-              git commit -m "chore(jedi): update team learnings
-
-          Auto-committed by Jedi after PR #${{ steps.check.outputs.pr_number }} merged.
-          These learnings are accumulated from PR reviews and feedback."
-              git push
-            fi
-          fi
+          bunx @benzotti/jedi@latest action promote-learnings \
+            --repo "$REPO" \
+            --sha "${{ github.sha }}" \
+            --pr-number "${{ steps.check.outputs.pr_number }}" \
+            --branch "${{ steps.check.outputs.branch }}" \
+            ${LEARNINGS_REPO:+--learnings-repo "$LEARNINGS_REPO"}
         env:
           LEARNINGS_REPO: ${{ vars.JEDI_LEARNINGS_REPO || '' }}
           LEARNINGS_TOKEN: ${{ secrets.JEDI_LEARNINGS_TOKEN || github.token }}

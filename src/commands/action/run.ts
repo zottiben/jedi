@@ -1,18 +1,18 @@
 import { defineCommand } from "citty";
 import { consola } from "consola";
 import { resolve } from "path";
-import { detectProjectType } from "../utils/detect-project";
-import { readAdapter } from "../utils/adapter";
-import { spawnClaude } from "../utils/claude";
-import { createStorage } from "../storage";
-import { loadPersistedState, savePersistedState } from "../utils/storage-lifecycle";
-import { extractClickUpId, fetchClickUpTicket, formatTicketAsContext } from "../utils/clickup";
-import { checkAuthorization } from "../utils/auth";
-import { sanitizeUserInput, fenceUserInput } from "../utils/sanitize";
-import { readState, writeState } from "../utils/state";
-import { applyDryRunMode, buildLearningsBlock } from "../utils/prompt-builder";
-import { runQualityGates } from "../utils/verify";
-import { formatVerificationResults } from "../utils/github";
+import { detectProjectType } from "../../utils/detect-project";
+import { readAdapter } from "../../utils/adapter";
+import { spawnClaude } from "../../utils/claude";
+import { createStorage } from "../../storage";
+import { loadPersistedState, savePersistedState } from "../../utils/storage-lifecycle";
+import { extractClickUpId, fetchClickUpTicket, formatTicketAsContext } from "../../utils/clickup";
+import { checkAuthorization } from "../../utils/auth";
+import { sanitizeUserInput, fenceUserInput } from "../../utils/sanitize";
+import { readState, writeState } from "../../utils/state";
+import { applyDryRunMode, buildLearningsBlock } from "../../utils/prompt-builder";
+import { runQualityGates } from "../../utils/verify";
+import { formatVerificationResults } from "../../utils/github";
 import {
   postGitHubComment,
   updateGitHubComment,
@@ -21,7 +21,7 @@ import {
   formatErrorComment,
   fetchCommentThread,
   buildConversationContext,
-} from "../utils/github";
+} from "../../utils/github";
 
 type JediCommand = "plan" | "implement" | "quick" | "review" | "feedback" | "ping";
 
@@ -121,9 +121,9 @@ function parseComment(
   return { ...base, command: "plan", description };
 }
 
-export const actionCommand = defineCommand({
+export const runCommand = defineCommand({
   meta: {
-    name: "action",
+    name: "run",
     description: "GitHub Action entry point — parse 'Hey Jedi' comment and run workflow",
   },
   args: {
