@@ -143,16 +143,31 @@ jobs:
           git sparse-checkout set "$REMOTE_SUBDIR" 2>/dev/null || true
           cd - > /dev/null
 
-          # Copy learnings from external repo into local framework
-          # External learnings serve as baseline; cache/local files take precedence
+          # Merge learnings from external repo into local framework
           if [ -d "$TMPDIR/$REMOTE_SUBDIR" ]; then
             for f in "$TMPDIR/$REMOTE_SUBDIR"/*.md; do
               [ -f "$f" ] || continue
               BASENAME=$(basename "$f")
-              # Only copy if local file doesn't exist (cache/committed files take precedence)
-              if [ ! -f "$LEARNINGS_DIR/$BASENAME" ]; then
-                cp "$f" "$LEARNINGS_DIR/$BASENAME"
+              LOCAL_FILE="$LEARNINGS_DIR/$BASENAME"
+
+              if [ ! -f "$LOCAL_FILE" ]; then
+                cp "$f" "$LOCAL_FILE"
                 echo "Loaded shared learning: $BASENAME"
+              else
+                # Append lines from remote that aren't already in the local file
+                MERGED=0
+                while IFS= read -r line; do
+                  [ -z "$line" ] && continue
+                  if ! grep -qFx "$line" "$LOCAL_FILE" 2>/dev/null; then
+                    echo "$line" >> "$LOCAL_FILE"
+                    MERGED=$((MERGED + 1))
+                  fi
+                done < "$f"
+                if [ "$MERGED" -gt 0 ]; then
+                  echo "Merged $MERGED new lines into $BASENAME"
+                else
+                  echo "No new learnings to merge for $BASENAME"
+                fi
               fi
             done
           else
