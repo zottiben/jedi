@@ -107,7 +107,8 @@ function parseComment(
   }
 
   // "approved" / "lgtm" / "looks good" — explicit approval (does NOT trigger implementation)
-  if (/^(approved?|lgtm|looks?\s*good|ship\s*it)/i.test(lower)) {
+  // Match anywhere in the message (word boundary) to catch e.g. "Im happy with this plan. Approved."
+  if (/\b(approved?|lgtm|looks?\s*good|ship\s*it)\b/i.test(lower)) {
     return { ...base, command: "plan", description: body, clickUpUrl: null, isFeedback: true, isApproval: true };
   }
 

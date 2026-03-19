@@ -39,7 +39,7 @@ Follow response templates exactly as instructed in the prompt — do not improvi
 
 Planning and implementation are **separate human-gated phases**. NEVER auto-proceed to implementation after planning or plan refinement.
 
-- When the user says "approved" / "lgtm" / "looks good" to a **plan**: this means the plan is finalised. It does NOT mean "go implement it." Finalise the plan review, output _"Plan approved. Run `/jdi:implement-plan` when ready."_, then **STOP**.
+- When the user says "approved" / "lgtm" / "looks good" to a **plan**: this means the plan is finalised. It does NOT mean "go implement it." Finalise the plan review, output _"Plan approved and locked in. Let me know when you want to implement."_, then **STOP**.
 - When the user provides refinement feedback on a plan, ONLY update the plan files in `.jdi/plans/`. Do NOT implement code.
 - Implementation ONLY happens when the user explicitly requests it: "implement", "build", "execute", or `/jdi:implement-plan`.
 

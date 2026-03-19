@@ -31,7 +31,7 @@ Create an implementation plan using a single planner agent (includes research).
 
 ## HARD STOP — Planning Gate
 
-After the user approves the plan, your work is **DONE**. Output: _"Plan approved and finalised. Run `/jdi:implement-plan` when ready to execute."_ Then **STOP completely**. Do NOT invoke `/jdi:implement-plan`, do NOT spawn implementation agents, do NOT begin writing source code. Planning and implementation are separate human-gated phases.
+After the user approves the plan, your work is **DONE**. Output: _"Plan approved and locked in. Let me know when you want to implement."_ Then **STOP completely**. Do NOT invoke `/jdi:implement-plan`, do NOT spawn implementation agents, do NOT begin writing source code. Planning and implementation are separate human-gated phases.
 
 Agent base (read FIRST for cache): .jdi/framework/components/meta/AgentBase.md | Agent spec: .jdi/framework/agents/jdi-planner.md
 
