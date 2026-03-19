@@ -9,7 +9,7 @@
 #   - Set CLICKUP_API_TOKEN secret for ClickUp ticket integration
 #   - Set JEDI_COMMIT_LEARNINGS=true repo variable to persist learnings in git
 #   - Set JEDI_LEARNINGS_REPO variable to push learnings to a central repo (e.g. org/jedi-learnings)
-#   - Set JEDI_LEARNINGS_TOKEN secret (PAT with repo access) when using an external learnings repo
+#   - Set JEDI_LEARNINGS_TOKEN secret (PAT with Contents read/write on the learnings repo)
 #   - Run `npx @benzotti/jedi init` locally to customise framework files
 #
 # Usage: Comment on any issue or PR with "Hey Jedi" followed by a command:
@@ -127,10 +127,10 @@ jobs:
         if: vars.JEDI_LEARNINGS_REPO != ''
         run: |
           LEARNINGS_DIR=".jdi/framework/learnings"
+          REMOTE_SUBDIR="jedi/learnings"
           mkdir -p "$LEARNINGS_DIR"
 
-          # Clone only the directory for this repo's learnings (sparse checkout)
-          REPO_SUBDIR="${{ github.repository }}"
+          # Clone only the learnings directory (sparse checkout)
           TMPDIR=$(mktemp -d)
           git clone --depth 1 --filter=blob:none --sparse \
             "https://x-access-token:${LEARNINGS_TOKEN}@github.com/${LEARNINGS_REPO}.git" \
@@ -140,13 +140,13 @@ jobs:
             }
 
           cd "$TMPDIR"
-          git sparse-checkout set "$REPO_SUBDIR" 2>/dev/null || true
+          git sparse-checkout set "$REMOTE_SUBDIR" 2>/dev/null || true
           cd - > /dev/null
 
           # Copy learnings from external repo into local framework
           # External learnings serve as baseline; cache/local files take precedence
-          if [ -d "$TMPDIR/$REPO_SUBDIR" ]; then
-            for f in "$TMPDIR/$REPO_SUBDIR"/*.md; do
+          if [ -d "$TMPDIR/$REMOTE_SUBDIR" ]; then
+            for f in "$TMPDIR/$REMOTE_SUBDIR"/*.md; do
               [ -f "$f" ] || continue
               BASENAME=$(basename "$f")
               # Only copy if local file doesn't exist (cache/committed files take precedence)
@@ -156,7 +156,7 @@ jobs:
               fi
             done
           else
-            echo "No shared learnings found for ${{ github.repository }} — continuing"
+            echo "No shared learnings found — continuing"
           fi
 
           rm -rf "$TMPDIR"
@@ -292,8 +292,8 @@ jobs:
       # Where learnings are committed:
       #   - Same repo (default): .jdi/framework/learnings/ on main
       #   - External repo: set JEDI_LEARNINGS_REPO (e.g. org/jedi-learnings)
-      #     and JEDI_LEARNINGS_TOKEN secret. Learnings are namespaced under
-      #     <owner>/<repo>/ in the external repo to support multiple projects.
+      #     and JEDI_LEARNINGS_TOKEN secret. Learnings are stored under
+      #     jedi/learnings/ in the external repo and merged (not replaced).
       - name: Commit learnings to repo
         if: >-
           steps.check.outputs.skip != 'true'
@@ -301,6 +301,7 @@ jobs:
           && vars.JEDI_COMMIT_LEARNINGS == 'true'
         run: |
           LEARNINGS_SRC=".jdi/framework/learnings"
+          REMOTE_SUBDIR="jedi/learnings"
 
           # Only proceed if there are learnings files with content
           if [ ! -d "$LEARNINGS_SRC" ]; then
@@ -327,8 +328,7 @@ jobs:
           git config user.email "jedi[bot]@users.noreply.github.com"
 
           if [ -n "$LEARNINGS_REPO" ]; then
-            # ── External repo: clone, copy learnings, push ──
-            REPO_SUBDIR="${{ github.repository }}"
+            # ── External repo: clone, merge learnings, push ──
             TMPDIR=$(mktemp -d)
 
             git clone --depth 1 \
@@ -338,13 +338,33 @@ jobs:
                 exit 0
               }
 
-            mkdir -p "$TMPDIR/$REPO_SUBDIR"
-            cp "$LEARNINGS_SRC"/*.md "$TMPDIR/$REPO_SUBDIR/"
+            mkdir -p "$TMPDIR/$REMOTE_SUBDIR"
+
+            # Merge learnings: append new lines from local that don't exist in remote
+            for f in "$LEARNINGS_SRC"/*.md; do
+              [ -f "$f" ] || continue
+              BASENAME=$(basename "$f")
+              REMOTE_FILE="$TMPDIR/$REMOTE_SUBDIR/$BASENAME"
+
+              if [ -f "$REMOTE_FILE" ]; then
+                # Append lines from local that aren't already in the remote file
+                while IFS= read -r line; do
+                  [ -z "$line" ] && continue
+                  if ! grep -qFx "$line" "$REMOTE_FILE" 2>/dev/null; then
+                    echo "$line" >> "$REMOTE_FILE"
+                  fi
+                done < "$f"
+                echo "Merged learning: $BASENAME"
+              else
+                cp "$f" "$REMOTE_FILE"
+                echo "Added new learning: $BASENAME"
+              fi
+            done
 
             cd "$TMPDIR"
             git config user.name "jedi[bot]"
             git config user.email "jedi[bot]@users.noreply.github.com"
-            git add "$REPO_SUBDIR"/*.md
+            git add "$REMOTE_SUBDIR"/*.md
 
             if git diff --cached --quiet; then
               echo "Learnings unchanged in external repo — nothing to commit"
@@ -354,7 +374,7 @@ jobs:
           Source: PR #${{ steps.check.outputs.pr_number }} on ${{ github.repository }}
           Learnings accumulated from PR reviews and feedback."
               git push
-              echo "Learnings committed to ${LEARNINGS_REPO}/${REPO_SUBDIR}"
+              echo "Learnings committed to ${LEARNINGS_REPO}/$REMOTE_SUBDIR"
             fi
 
             cd - > /dev/null
